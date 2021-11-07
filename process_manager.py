@@ -16,7 +16,6 @@ if __name__ == "__main__":
 
 
     controller_process.start()
-    command_queue.put("Print this")
 
     api.RoasterAPI.register(app, route_base = '/', init_argument=command_queue)
     app.run()

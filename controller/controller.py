@@ -5,7 +5,7 @@ import multiprocessing as mp
 class RoasterController:
 
     # command_queue is a queue of commands sent to the controller. 
-    # commands should be injested quickly but should not block operation
+    # commands are injested one at a time and do not block normal operation
 
     def __init__(self, verbose=False):
         
@@ -46,6 +46,7 @@ class RoasterController:
             if self.verbose:
                 print("")
             return True
+
 
         #heater
         elif (command[0] == "H0"):

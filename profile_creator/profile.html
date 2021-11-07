@@ -1,0 +1,761 @@
+
+
+
+<!DOCTYPE html>
+<meta charset="UTF-8">
+
+<html>
+
+<style>
+    #color_title {
+        color: #251200;
+    }
+    
+    #color_axes {
+        color: #000000;
+    }
+    
+    #color_temp {
+        color: #251200;
+    }
+    #color_heater {
+        color: #FF356E;
+    }
+    
+    #color_fan {
+        color: #05003666;
+    }
+</style>
+
+
+<body>
+
+    <canvas id="profileCanvas" style="border:1px solid #000000; display: block; margin: auto;">
+    </canvas>
+    <br>
+    <textarea id="notes" style="border:1px solid #000000; display: block; margin: auto;"></textarea>
+
+    <div id = "buttons" style = "width : 300px; display:  block; margin: auto;"> 
+        <button></button> <button></button> <button></button>
+    </div>
+
+    <div id = "color_title"></div>
+    <div id = "color_axes"></div>
+    <div id = "color_temp"></div>
+    <div id = "color_heater"></div>
+    <div id = "color_fan"></div>
+
+
+    <script>
+
+
+        var c = document.getElementById("profileCanvas");
+        var ctx = c.getContext("2d"); 
+
+        var notes_box = document.getElementById("notes");
+
+        //Pull in css colors (this is so we can make it fancy looking later)
+        //I hate this- will fix it later.
+
+        var color_title = document.getElementById("color_title")
+        color_title = window.getComputedStyle(color_title).color.toString()
+
+        var color_axes = document.getElementById("color_axes")
+        color_axes = window.getComputedStyle(color_axes).color.toString()
+
+        var color_temp = document.getElementById("color_temp")
+        color_temp = window.getComputedStyle(color_temp).color.toString()
+
+        var color_heater = document.getElementById("color_heater")
+        color_heater = window.getComputedStyle(color_heater).color.toString()
+
+        var color_fan = document.getElementById("color_fan")
+        color_fan = window.getComputedStyle(color_fan).color.toString()
+
+
+        //set our canvas sizing. Everything drawn on the canvas will be in relation to this coordinate frame
+        c.width = 1600;
+        c.height = 900;
+
+
+        //setup the actual plot coordinates and the max values for temp and time
+        var internal_plot = [[50, 1450], [80, 850]];
+        var temp_max = 500
+        var time_max = 1000
+
+        var temp_nodes = [];
+        var heater_nodes = [];
+        var fan_nodes = [];
+
+        var click_margin_node = 10;
+        var click_margin_line = 6;
+
+        active_node = null;
+
+
+        class Node {
+            constructor(context, type, time, val) 
+            {
+
+                this.size = 10;
+
+                this.context = context
+                this.type = type;
+                this.val = val;
+                this.time = time;
+                this.color = "";
+                this.unit = "";
+                this.valToCanvas;
+                this.valFromCanvas;
+
+                var y = 0;
+
+                switch (type){
+                    case "temp":
+                        this.color = color_temp;
+                        this.valToCanvas = tempToCanvas;
+                        this.valFromCanvas = canvasToTemp;
+                        this.unit = "°C"
+                        break;
+
+                    case "fan":
+                        this.color = color_fan;
+                        this.valToCanvas = percentToCanvas;
+                        this.valFromCanvas = canvasToPercent;
+                        this.unit = "%"
+                        break;
+
+                    case "heater":
+                        this.color = color_heater;
+                        this.valToCanvas = percentToCanvas;
+                        this.valFromCanvas = canvasToPercent;
+                        this.unit = "%"
+                        break;
+                    }
+
+                this.canvas_pos = [timeToCanvas(this.time), this.valToCanvas(this.val)];
+            }
+
+            draw()
+            {
+                this.context.beginPath();
+                this.context.strokeStyle = this.color;
+                this.context.fillStyle = "white"
+                this.context.lineWidth = 8;
+                this.context.arc(this.canvas_pos[0], this.canvas_pos[1], this.size, 0, 360);
+                this.context.stroke();
+                this.context.fill();
+            }
+
+            isMe(click_pos, margin) //square bounding box rn, probably doesn't need fixing
+            {
+                if (click_pos[0] > this.canvas_pos[0]-(this.size+margin) &&
+                    click_pos[0] < this.canvas_pos[0]+(this.size+margin) &&
+                    click_pos[1] > this.canvas_pos[1]-(this.size+margin) &&
+                    click_pos[1] < this.canvas_pos[1]+(this.size+margin))
+                {
+                    return true;
+                }
+                else return false;
+            }
+
+            moveToCanvas(pos)
+            {
+                
+                this.time = Math.max(Math.round(canvasToTime(pos[0])), 0);
+                this.val = Math.max(Math.round(this.valFromCanvas(pos[1])), 0);
+                this.canvas_pos = [timeToCanvas(this.time), this.valToCanvas(this.val)];
+
+            }
+
+            moveToVal(vals)
+            {
+                this.time = Math.max(Math.round(vals[0]), 0);
+                this.val = Math.max(Math.round(vals[1]), 0);
+                this.canvas_pos = [timeToCanvas(vals[0]), this.valToCanvas(vals[1])];
+            }
+        }
+
+        class ImmovableNode extends Node {
+            //this keeps the node from ever being clicked by the user
+            isMe(click_pos, margin)
+            {   
+                return false;
+            }
+
+        }
+
+
+
+        function scaleWindow()
+        {
+            //scale the canvas to our window width, maintaining a 16:9 aspect ratio
+            var scaling_factor = .96 * Math.min(window.innerWidth/1600, window.innerHeight/1200);
+            var scaled_width = 1600 * scaling_factor;
+            var scaled_height = 900 * scaling_factor;
+
+            c.style.width = scaled_width.toString() +"px";
+            c.style.height = scaled_height.toString() +"px";
+
+            notes_box.style.width = scaled_width.toString() +"px";
+            notes_box.style.height = (scaled_height*.2).toString() +"px";
+            notes_box.style.fontSize = (scaled_height*.03).toString() +"px";
+        }
+
+
+        function tempToCanvas(temp){
+            var canvas_range = internal_plot[1][1] - internal_plot[1][0];
+            return internal_plot[1][1] - canvas_range * (temp/temp_max)
+        }
+
+
+        function timeToCanvas(time){
+            var canvas_range = internal_plot[0][1] - internal_plot[0][0];
+            return internal_plot[0][0] + canvas_range * (time/time_max)
+        }
+
+
+        function percentToCanvas(percent){
+            var canvas_range = internal_plot[1][1] - internal_plot[1][0];
+            return internal_plot[1][1] - canvas_range * (percent/100)
+        }
+
+
+        function canvasToTemp(y){
+            var canvas_range = internal_plot[1][1] - internal_plot[1][0];
+            return temp_max * (internal_plot[1][1] - y)/canvas_range
+        }
+
+
+        function canvasToPercent(y){
+            var canvas_range = internal_plot[1][1] - internal_plot[1][0];
+            return 100 * (internal_plot[1][1] - y)/canvas_range
+        }
+
+        function canvasToTime(x){
+            var canvas_range = internal_plot[0][1] - internal_plot[0][0];
+            return time_max * (x - internal_plot[0][0])/canvas_range
+        }
+
+
+
+
+        function axesTicks(ctx, vert, num, axis_len, scale_len, start_pos, big_width, small_width = -1, label = 0)
+        {
+            var current_tick = vert ? start_pos[1] : start_pos[0]
+            var scale_val = 0;
+            var step = axis_len/num;
+            var scale_step = scale_len/num;
+
+            if (small_width == -1){
+                small_width = big_width;
+            }
+
+            ctx.beginPath();
+
+            for (let i = 1; i <= num; i++)
+            {
+                current_tick += step;
+                scale_val += scale_step;
+
+                var half_width = (i%2==0) ? big_width/2 : small_width/2;
+
+                var start_pos_x = vert ? start_pos[0]-half_width : current_tick;
+                var start_pos_y = vert ? current_tick : start_pos[1]-half_width;
+
+                var end_pos_x = vert ? start_pos[0]+half_width : current_tick;
+                var end_pos_y = vert ? current_tick : start_pos[1]+half_width;
+
+                ctx.moveTo(start_pos_x, start_pos_y);
+                ctx.lineTo(end_pos_x, end_pos_y);
+                
+
+                if (label && i%2==0)
+                {
+                    ctx.fillText(scale_val, end_pos_x + (vert? 5 : -16), end_pos_y + (vert? 8 : 20))
+                }
+            }
+            ctx.stroke();
+
+        }
+
+
+        //draw the axes of the graph
+        function drawAxes(ctx, color_main, color_accent, color_fan, color_heater)
+        {
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = color_main;
+            ctx.fillStyle = color_main;
+
+            //time axis
+            ctx.font = '30px serif';
+            ctx.fillText("Time (s)", 60, 880);
+            ctx.beginPath();
+            ctx.moveTo(10, internal_plot[1][1]);
+            ctx.lineTo(1590, internal_plot[1][1]);
+            ctx.stroke();
+            ctx.font = '20px serif';
+            axesTicks(ctx, 0, 16, internal_plot[0][1] - internal_plot[0][0], time_max, 
+                [internal_plot[0][0], internal_plot[1][1]], 16, 10, 1);
+
+            //temp axis
+            ctx.font = '30px serif';
+            ctx.fillText("Temp (°C)", 10, 40);
+            ctx.beginPath();
+            ctx.moveTo(internal_plot[0][0], 60);
+            ctx.lineTo(internal_plot[0][0], 890);
+            ctx.stroke();
+            axesTicks(ctx, 1, 10, internal_plot[1][0] - internal_plot[1][1], temp_max,
+             [internal_plot[0][0], internal_plot[1][1]], 16, 10, 1);
+
+            //fan/heater axis
+            
+            ctx.beginPath();
+            ctx.strokeStyle = color_accent;
+            ctx.fillStyle = color_accent;
+
+            ctx.moveTo(internal_plot[0][1], 80);
+            ctx.lineTo(internal_plot[0][1], 850);
+            ctx.stroke();
+            axesTicks(ctx, 1, 10, internal_plot[1][0] - internal_plot[1][1], 100,
+             [internal_plot[0][1], internal_plot[1][1]], 16, 10, 1);
+
+            ctx.beginPath();
+            ctx.fillStyle = color_fan;
+            ctx.fillText("Fan /", 1370, 40);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.fillStyle = color_heater;
+            ctx.fillText("Heater (%)", 1440, 40);
+            ctx.stroke();
+        }
+
+
+        //add lines between nodes
+        function connectTheDots(context, points)
+        {
+            //sort points array by time
+            points.sort((a,b) => a.time - b.time);
+
+            context.strokeStyle = points[0].color;
+            context.lineWidth = 2;
+
+            context.moveTo(points[0].canvas_pos[0], points[0].canvas_pos[1]);
+
+            for(var i = 1; i<points.length; i++){
+                context.lineTo(points[i].canvas_pos[0], points[i].canvas_pos[1]);
+            }
+            context.stroke();
+        }
+
+        //clear the canvas and redraw everything
+        function refresh(context, node_arrays)
+        {   
+            context.beginPath();
+            context.fillStyle = "White";
+            context.fillRect(0,0,c.width,c.height);
+            context.stroke();
+            drawAxes(context, color_axes, color_axes, color_fan, color_heater);
+            
+            for (node_array of node_arrays)
+            {
+                connectTheDots(context, node_array);
+                for (node of node_array)
+                {
+                    node.draw();
+                }
+            }
+        }
+
+
+
+        //calculate the distance from a line (defined by two points) to a third point)
+        function distanceLineToPoint(p1, p2, point)
+        {
+            var twice_the_area = Math.abs((p2[0]-p1[0])*(p1[1]-point[1]) - (p1[0]-point[0])*(p2[1]-p1[1]));
+            var b = Math.sqrt((p2[0]-p1[0])*(p2[0]-p1[0]) + (p2[1]-p1[1])*(p2[1]-p1[1]));
+
+            var h = twice_the_area/b;
+
+            return h;
+        }
+
+
+        function getMousePosCanvas(canvas, evt) 
+        {
+            var rect = canvas.getBoundingClientRect();
+            return [(evt.clientX - rect.left)/(rect.right-rect.left) * c.width,
+                (evt.clientY - rect.top)/(rect.bottom-rect.top) * c.height];
+        }
+
+        function mouseDownCanvas(evt)
+        {
+            var node_arrays = [temp_nodes, heater_nodes, fan_nodes];
+            var mousePos = getMousePosCanvas(c, evt);
+            for (node_array of node_arrays)
+            {
+                for (node of node_array)
+                {
+                    if (node.isMe(mousePos, click_margin_node))
+                    {
+                        active_node = node;
+                    }
+                }
+            }
+        }
+
+        function mouseMoveCanvas(evt)
+        {
+            var node_arrays = [temp_nodes, heater_nodes, fan_nodes];
+            refresh(ctx, node_arrays);
+            var mousePos = getMousePosCanvas(c, evt);
+            if (active_node)
+            {
+                active_node.moveToCanvas(mousePos);
+            }
+            for (node_array of node_arrays)
+            {
+                for (node of node_array)
+                {
+                    if (node.isMe(mousePos, click_margin_node))
+                    {
+                        ctx.beginPath();
+                        ctx.fillStyle = node.color;
+                        ctx.font = "20px serif";
+                        ctx.fillText((node.val.toString() + node.unit + " at " + node.time.toString() + " seconds"), node.canvas_pos[0], node.canvas_pos[1] - 20);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        function mouseDblClick(evt)
+        {
+            var node_arrays = [temp_nodes, heater_nodes, fan_nodes];
+            var mousePos = getMousePosCanvas(c, evt);
+
+            for (node_array of node_arrays)
+            {
+                node_array.sort((a,b) => a.time - b.time);
+
+                for (var i = 0; i < node_array.length; i++){
+
+                    //if a node is doubleclicked, remove it
+                    if (node_array[i].isMe(mousePos, click_margin_node))
+                    {
+                        node_array.splice(i,1);
+                        refresh(ctx, node_arrays);
+                        return;
+                    }
+
+                    // if the click is along a line, add a new node of the line type
+                    else if (i < node_array.length-1)
+                    {   
+                        if (mousePos[0] > node_array[i].canvas_pos[0] && mousePos[0] < node_array[i+1].canvas_pos[0])
+                        {
+                            dist = distanceLineToPoint(node_array[i].canvas_pos, node_array[i+1].canvas_pos, mousePos);
+
+                            if (dist < 4)
+                            {
+                                //console.log("new Node");
+                                new_node = new Node(ctx, node_array[i].type, canvasToTime(mousePos[0]), node_array[i].valFromCanvas(mousePos[1]));
+                                
+                                node_array.splice(i, 0, new_node);
+                                refresh(ctx, node_arrays);
+                                return;
+                            }
+                        }                    
+                    }
+                }
+            }
+        }
+
+
+        function triple_node_comparison(a,b,c)
+        {
+            if (a.length > 0 && b.length > 0 && c.length > 0)
+            {
+                if (a[0].time <= b[0].time && a[0].time <= c[0].time){
+                    return a;
+                }
+                else if (b[0].time <= a[0].time && b[0].time <= c[0].time){
+                    return b;
+                }
+                else {
+                    return c;
+                }
+            }
+
+            else if (a.length > 0 && b.length > 0)
+            {
+                if (a[0].time <= b[0].time){
+                    return a;
+                }
+                else{
+                    return b;
+                }
+            }
+
+            else if (a.length > 0 && c.length > 0)
+            {
+                if (a[0].time <= c[0].time){
+                    return a;
+                }
+                else{
+                    return c;
+                }
+            }
+
+            else if (b.length > 0 && c.length > 0)
+            {
+                if (b[0].time <= c[0].time){
+                    return b;
+                }
+                else{
+                    return c;
+                }
+            }
+            else if (a.length > 0)
+                return a;
+            else if (b.length > 0)
+                return b;
+            else if (c.length > 0)
+                return c;
+
+            else{
+                return false;
+            }
+
+        }
+
+
+        function rcode_string_out(node_arrays)
+        {
+            var command_string = "B0\nH0\nF0\n";
+            var node;
+            var t_nodes = node_arrays[0].slice(0);
+            var h_nodes = node_arrays[1].slice(0);
+            var f_nodes = node_arrays[2].slice(0);
+
+            t_nodes.sort((a,b) => a.time - b.time);
+            f_nodes.sort((a,b) => a.time - b.time);
+            h_nodes.sort((a,b) => a.time - b.time);
+
+            while(1)
+            {
+                command_dict = {"temp" : "B", 
+                                "fan" : "F",
+                                "heater" : "H"};
+
+                next_node_array = triple_node_comparison(t_nodes, f_nodes, h_nodes);
+
+
+                if (next_node_array)
+                {
+
+                    node = next_node_array.shift();
+
+                    if (next_node_array.length > 0)
+                    {
+                        var next_node_time = next_node_array[0].time
+                        var duration = next_node_time - node.time
+                        var next_node_val = next_node_array[0].val
+                        command_string += command_dict[node.type] +"2,"+next_node_val.toString()+","+(1000*duration).toString()+",0\n"
+                    }
+                    else
+                    {
+                        command_string += command_dict[node.type] +"1,"+node.val.toString()+"\n"
+                    }
+                        
+                }
+                else
+                {
+                    return command_string + ";\n" + notes_box.value;
+                }
+            }
+        }
+
+        function rcode_string_in(text)
+        {
+           
+            time = [0,0,0]; //temp, fan, heater
+            var time_index = 0
+
+            var t_nodes = [];
+            var h_nodes = [];
+            var f_nodes = [];
+            var active_node_array;
+
+            var command_note = text.split(";");
+            if (command_note.length > 1)
+            {
+                notes_box.value = command_note[1];
+            }
+            var command_array = command_note[0].split("\n");
+
+            for (command of command_array)
+            {
+                var cmd_pieces = command.split(",");
+                console.log(cmd_pieces);
+                
+                var type = ""
+
+                switch (cmd_pieces[0][0]) {
+                    case "B":
+                        active_node_array = t_nodes;
+                        type = "temp";
+                        time_index = 0
+                        break;
+                    case "F":
+                        active_node_array = f_nodes;
+                        type = "fan";
+                        time_index = 1
+                        break;
+                    case "H":
+                        active_node_array = h_nodes;
+                        type = "heater";
+                        time_index = 2
+                        break;
+                }
+
+                var new_node;
+                switch (cmd_pieces[0][1]) {
+                    case "0":
+                        new_node = new Node(ctx, type, time[time_index], 0);
+                        break;
+                    case "1":
+                        new_node = new Node(ctx, type, time[time_index], cmd_pieces[1]);
+                        break;
+                    case "2":
+                        time[time_index] += cmd_pieces[2]/1000;
+                        new_node = new Node(ctx, type, time[time_index], cmd_pieces[1]);
+                        break;
+
+                    case _:
+                        console.log("not implemented");
+                }
+                active_node_array.push(new_node);
+                //console.log(new_node);
+                //console.log(active_node_array);
+            }
+            return ([t_nodes, h_nodes, f_nodes]);
+        }
+
+
+
+        function downloadText(text, name, type) {
+          var a = document.getElementById("a");
+          var file = new Blob([text], {type: type});
+          a.href = URL.createObjectURL(file);
+          a.download = name;
+        }
+
+
+
+
+
+        c.addEventListener('mousedown', mouseDownCanvas, false);
+        c.addEventListener('mousemove', mouseMoveCanvas, false);
+        c.addEventListener('mouseup', function (evt) 
+        {
+            var node_arrays = [temp_nodes, heater_nodes, fan_nodes];
+            active_node = null;
+            refresh(ctx, node_arrays);
+        }, false);
+        c.addEventListener('dblclick', mouseDblClick, false);
+
+
+
+
+        
+/*
+        temps = [25,50,90, 200, 300, 300, 400, 50, 25];
+
+        fans = [10, 50, 100, 100, 100, 0];
+
+        heater = [0,0,0,0,0];
+
+        temp_nodes.push(new ImmovableNode(ctx, "temp", 0, 0));
+        temp_nodes.push(new ImmovableNode(ctx, "temp", time_max, 0));
+
+        for (t in temps)
+        {
+            temp_nodes.push(new Node(ctx, "temp", 40 + 60*t, temps[t]));
+        }
+
+        fan_nodes.push(new ImmovableNode(ctx, "fan", 0, 0));
+        fan_nodes.push(new ImmovableNode(ctx, "fan", time_max, 0));
+        for (t in fans)
+        {
+            fan_nodes.push(new Node(ctx, "fan", 50 + 80*t, fans[t]));
+        }
+
+        heater_nodes.push(new ImmovableNode(ctx, "heater", 0, 0))
+        heater_nodes.push(new ImmovableNode(ctx, "heater", time_max, 0))
+        for (t in heater)
+        {
+            heater_nodes.push(new Node(ctx, "heater", 30 + 110*t, heater[t]));
+        }
+
+        console.log(rcode_string_inorder([temp_nodes, heater_nodes, fan_nodes]));
+*/
+
+        nodes = rcode_string_in(
+`B0
+H0
+F0
+B2,25,40000,0
+F2,10,50000,0
+H2,0,30000,0
+H2,0,110000,0
+B2,50,60000,0
+F2,50,80000,0
+B2,90,60000,0
+F2,100,80000,0
+H2,0,110000,0
+B2,200,60000,0
+F2,100,80000,0
+B2,300,60000,0
+H2,0,110000,0
+B2,300,60000,0
+F2,100,80000,0
+B2,400,60000,0
+H2,0,110000,0
+F2,0,80000,0
+B2,50,60000,0
+F2,0,550000,0
+B2,25,60000,0
+H2,0,530000,0
+B2,0,480000,0
+B1,0
+F1,0
+H1,0;This is a note at the end of the doc that gets loaded into the textbox`)
+
+
+        temp_nodes = nodes[0];
+        fan_nodes = nodes[1];
+        heater_nodes = nodes[2];
+
+
+        console.log(rcode_string_out(nodes));
+
+        window.addEventListener('resize', function(event) {
+            scaleWindow();
+        }, true);
+
+        scaleWindow();
+        refresh(ctx, [temp_nodes, heater_nodes, fan_nodes]);
+
+
+
+
+    </script>
+
+</body>
+</html>
+
+
+
+
+
