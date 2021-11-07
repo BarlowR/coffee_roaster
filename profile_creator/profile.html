@@ -35,8 +35,13 @@
     <br>
     <textarea id="notes" style="border:1px solid #000000; display: block; margin: auto;"></textarea>
 
-    <div id = "buttons" style = "width : 200px; display:  block; margin: auto;"> 
-        <button>save</button> <button>load</button> <button>send it</button>
+    <div id = "buttons" style = "width : 300px; display:  flex; justify-content: center; flex-direction: column; margin: auto;"> 
+        <button id = 'load' style="width:">load profile</button>
+        <div style="display:flex; justify-content:center;">
+            <button id = 'save'>save</button> 
+            <button id = 'send'>send it</button>
+        </div>
+        <input type ="file" id="upload_profile" style="display:none;">
     </div>
 
     <div id = "color_title"></div>
@@ -48,11 +53,15 @@
 
     <script>
 
+        const c = document.getElementById("profileCanvas");
+        const ctx = c.getContext("2d"); 
 
-        var c = document.getElementById("profileCanvas");
-        var ctx = c.getContext("2d"); 
+        const save_button = document.getElementById('save');
+        const file_upload = document.getElementById('upload_profile');
 
         var notes_box = document.getElementById("notes");
+
+
 
         //Pull in css colors (this is so we can make it fancy looking later)
         //I hate this- will fix it later.
@@ -90,7 +99,9 @@
         var click_margin_node = 10;
         var click_margin_line = 6;
 
-        active_node = null;
+        var active_node = null;
+
+        var loaded = false;
 
 
         class Node {
@@ -391,15 +402,18 @@
 
         function mouseDownCanvas(evt)
         {
-            var node_arrays = [temp_nodes, heater_nodes, fan_nodes];
-            var mousePos = getMousePosCanvas(c, evt);
-            for (node_array of node_arrays)
+            if (loaded)
             {
-                for (node of node_array)
+                var node_arrays = [temp_nodes, heater_nodes, fan_nodes];
+                var mousePos = getMousePosCanvas(c, evt);
+                for (node_array of node_arrays)
                 {
-                    if (node.isMe(mousePos, click_margin_node))
+                    for (node of node_array)
                     {
-                        active_node = node;
+                        if (node.isMe(mousePos, click_margin_node))
+                        {
+                            active_node = node;
+                        }
                     }
                 }
             }
@@ -407,24 +421,27 @@
 
         function mouseMoveCanvas(evt)
         {
-            var node_arrays = [temp_nodes, heater_nodes, fan_nodes];
-            refresh(ctx, node_arrays);
-            var mousePos = getMousePosCanvas(c, evt);
-            if (active_node)
-            {
-                active_node.moveToCanvas(mousePos);
-            }
-            for (node_array of node_arrays)
-            {
-                for (node of node_array)
+            if (loaded)
                 {
-                    if (node.isMe(mousePos, click_margin_node))
+                var node_arrays = [temp_nodes, heater_nodes, fan_nodes];
+                refresh(ctx, node_arrays);
+                var mousePos = getMousePosCanvas(c, evt);
+                if (active_node)
+                {
+                    active_node.moveToCanvas(mousePos);
+                }
+                for (node_array of node_arrays)
+                {
+                    for (node of node_array)
                     {
-                        ctx.beginPath();
-                        ctx.fillStyle = node.color;
-                        ctx.font = "20px serif";
-                        ctx.fillText((node.val.toString() + node.unit + " at " + node.time.toString() + " seconds"), node.canvas_pos[0], node.canvas_pos[1] - 20);
-                        ctx.stroke();
+                        if (node.isMe(mousePos, click_margin_node))
+                        {
+                            ctx.beginPath();
+                            ctx.fillStyle = node.color;
+                            ctx.font = "20px serif";
+                            ctx.fillText((node.val.toString() + node.unit + " at " + node.time.toString() + " seconds"), node.canvas_pos[0], node.canvas_pos[1] - 20);
+                            ctx.stroke();
+                        }
                     }
                 }
             }
@@ -432,40 +449,45 @@
 
         function mouseDblClick(evt)
         {
-            var node_arrays = [temp_nodes, heater_nodes, fan_nodes];
-            var mousePos = getMousePosCanvas(c, evt);
 
-            for (node_array of node_arrays)
+            if (loaded)
             {
-                node_array.sort((a,b) => a.time - b.time);
+                var node_arrays = [temp_nodes, heater_nodes, fan_nodes];
+                var mousePos = getMousePosCanvas(c, evt);
 
-                for (var i = 0; i < node_array.length; i++){
 
-                    //if a node is doubleclicked, remove it
-                    if (node_array[i].isMe(mousePos, click_margin_node))
-                    {
-                        node_array.splice(i,1);
-                        refresh(ctx, node_arrays);
-                        return;
-                    }
+                for (node_array of node_arrays)
+                {
+                    node_array.sort((a,b) => a.time - b.time);
 
-                    // if the click is along a line, add a new node of the line type
-                    else if (i < node_array.length-1)
-                    {   
-                        if (mousePos[0] > node_array[i].canvas_pos[0] && mousePos[0] < node_array[i+1].canvas_pos[0])
+                    for (var i = 0; i < node_array.length; i++){
+
+                        //if a node is doubleclicked, remove it
+                        if (node_array[i].isMe(mousePos, click_margin_node))
                         {
-                            dist = distanceLineToPoint(node_array[i].canvas_pos, node_array[i+1].canvas_pos, mousePos);
+                            node_array.splice(i,1);
+                            refresh(ctx, node_arrays);
+                            return;
+                        }
 
-                            if (dist < 4)
+                        // if the click is along a line, add a new node of the line type
+                        else if (i < node_array.length-1)
+                        {   
+                            if (mousePos[0] > node_array[i].canvas_pos[0] && mousePos[0] < node_array[i+1].canvas_pos[0])
                             {
-                                //console.log("new Node");
-                                new_node = new Node(ctx, node_array[i].type, canvasToTime(mousePos[0]), node_array[i].valFromCanvas(mousePos[1]));
-                                
-                                node_array.splice(i, 0, new_node);
-                                refresh(ctx, node_arrays);
-                                return;
-                            }
-                        }                    
+                                dist = distanceLineToPoint(node_array[i].canvas_pos, node_array[i+1].canvas_pos, mousePos);
+
+                                if (dist < 4)
+                                {
+                                    //console.log("new Node");
+                                    new_node = new Node(ctx, node_array[i].type, canvasToTime(mousePos[0]), node_array[i].valFromCanvas(mousePos[1]));
+                                    
+                                    node_array.splice(i, 0, new_node);
+                                    refresh(ctx, node_arrays);
+                                    return;
+                                }
+                            }                    
+                        }
                     }
                 }
             }
@@ -571,7 +593,7 @@
                 }
                 else
                 {
-                    return command_string + ";\n" + notes_box.value;
+                    return command_string + ";" + notes_box.value;
                 }
             }
         }
@@ -597,7 +619,7 @@
             for (command of command_array)
             {
                 var cmd_pieces = command.split(",");
-                console.log(cmd_pieces);
+                //console.log(cmd_pieces);
                 
                 var type = ""
 
@@ -632,8 +654,8 @@
                         new_node = new Node(ctx, type, time[time_index], cmd_pieces[1]);
                         break;
 
-                    case _:
-                        console.log("not implemented");
+                    default:
+                        console.log(cmd_pieces[0][1], "not implemented");
                 }
                 active_node_array.push(new_node);
                 //console.log(new_node);
@@ -645,16 +667,45 @@
 
 
         function downloadText(text, name, type) {
-          var a = document.getElementById("a");
+          var a = document.createElement("a");
           var file = new Blob([text], {type: type});
           a.href = URL.createObjectURL(file);
           a.download = name;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
         }
 
+        function loadProfile(evt)
+        {
+            fileList = this.files;
+            //console.log(fileList);
+            
+            var reader = new FileReader();
+            reader.onload = function(event){
+                nodes = rcode_string_in(event.target.result);
 
+                temp_nodes = nodes[0];
+                fan_nodes = nodes[1];
+                heater_nodes = nodes[2];
 
+                loaded = true;
+                load.innerText = fileList[0].name;
+                refresh(ctx, [temp_nodes, heater_nodes, fan_nodes]);
 
+            }
+            reader.readAsText(fileList[0]);
+        }
+            
 
+        file_upload.addEventListener("change", loadProfile, false);
+        load.addEventListener('click', (evt) => file_upload.click(), false);
+
+        save_button.addEventListener('click', function(){
+            var string_out = rcode_string_out([temp_nodes, heater_nodes, fan_nodes]);
+            var filename = "rcode.txt";
+            downloadText(string_out, filename, "text");
+        })
         c.addEventListener('mousedown', mouseDownCanvas, false);
         c.addEventListener('mousemove', mouseMoveCanvas, false);
         c.addEventListener('mouseup', function (evt) 
@@ -665,89 +716,49 @@
         }, false);
         c.addEventListener('dblclick', mouseDblClick, false);
 
-
-
-
-        
-/*
-        temps = [25,50,90, 200, 300, 300, 400, 50, 25];
-
-        fans = [10, 50, 100, 100, 100, 0];
-
-        heater = [0,0,0,0,0];
-
-        temp_nodes.push(new ImmovableNode(ctx, "temp", 0, 0));
-        temp_nodes.push(new ImmovableNode(ctx, "temp", time_max, 0));
-
-        for (t in temps)
-        {
-            temp_nodes.push(new Node(ctx, "temp", 40 + 60*t, temps[t]));
-        }
-
-        fan_nodes.push(new ImmovableNode(ctx, "fan", 0, 0));
-        fan_nodes.push(new ImmovableNode(ctx, "fan", time_max, 0));
-        for (t in fans)
-        {
-            fan_nodes.push(new Node(ctx, "fan", 50 + 80*t, fans[t]));
-        }
-
-        heater_nodes.push(new ImmovableNode(ctx, "heater", 0, 0))
-        heater_nodes.push(new ImmovableNode(ctx, "heater", time_max, 0))
-        for (t in heater)
-        {
-            heater_nodes.push(new Node(ctx, "heater", 30 + 110*t, heater[t]));
-        }
-
-        console.log(rcode_string_inorder([temp_nodes, heater_nodes, fan_nodes]));
-*/
-
-        nodes = rcode_string_in(
-`B0
-H0
-F0
-B2,25,40000,0
-F2,10,50000,0
-H2,0,30000,0
-H2,0,110000,0
-B2,50,60000,0
-F2,50,80000,0
-B2,90,60000,0
-F2,100,80000,0
-H2,0,110000,0
-B2,200,60000,0
-F2,100,80000,0
-B2,300,60000,0
-H2,0,110000,0
-B2,300,60000,0
-F2,100,80000,0
-B2,400,60000,0
-H2,0,110000,0
-F2,0,80000,0
-B2,50,60000,0
-F2,0,550000,0
-B2,25,60000,0
-H2,0,530000,0
-B2,0,480000,0
-B1,0
-F1,0
-H1,0;This is a note at the end of the doc that gets loaded into the textbox`)
-
-
-        temp_nodes = nodes[0];
-        fan_nodes = nodes[1];
-        heater_nodes = nodes[2];
-
-
-        console.log(rcode_string_out(nodes));
-
         window.addEventListener('resize', function(event) {
             scaleWindow();
         }, true);
 
         scaleWindow();
-        refresh(ctx, [temp_nodes, heater_nodes, fan_nodes]);
 
 
+        nodes = rcode_string_in(`B0
+H0
+F0
+B2,0,43000,0
+H2,99,0,0
+H2,100,112000,0
+F2,100,68000,0
+B2,90,69000,0
+F2,100,302000,0
+B2,90,48000,0
+H2,0,1000,0
+H2,0,247000,0
+B2,200,60000,0
+B2,336,59000,0
+B2,300,61000,0
+B2,301,91000,0
+H2,0,110000,0
+F2,0,80000,0
+B2,0,12000,0
+B2,0,557000,0
+F2,0,550000,0
+H2,0,530000,0
+B2,0,0,0
+B1,0
+H2,0,0,0
+H1,0
+F2,0,0,0
+F1,0
+;Howdy!  This is a roasting profile creator tool for Rob's popcorn coffee roaster. 
+Click and drag nodes to move them.
+Double click a line to add a node, and double click a node to remove it.
+This is a freeform text box, add your roasting notes here as you go.
+
+                              v Click here to load a roast profile v`);
+
+        refresh(ctx, nodes);
 
 
     </script>

@@ -40,11 +40,11 @@ class RoasterController:
             return True
         elif (command[0] == "F1"):
             if self.verbose:
-                print("")
+                print("Turning on Fans")
             return True
         elif (command[0] == "F2"):
             if self.verbose:
-                print("")
+                print("Turning on Fans")
             return True
 
 
