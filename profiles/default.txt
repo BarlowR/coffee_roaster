@@ -1,0 +1,34 @@
+B0
+H0
+F0
+B2,0,43000,0
+H2,99,0,0
+H2,100,112000,0
+F2,100,68000,0
+B2,90,69000,0
+F2,100,302000,0
+B2,90,48000,0
+H2,0,1000,0
+H2,0,247000,0
+B2,200,60000,0
+B2,336,59000,0
+B2,300,61000,0
+B2,301,91000,0
+H2,0,110000,0
+F2,0,80000,0
+B2,0,12000,0
+B2,0,557000,0
+F2,0,550000,0
+H2,0,530000,0
+B2,0,0,0
+B1,0
+H2,0,0,0
+H1,0
+F2,0,0,0
+F1,0
+;Howdy!  This is a roasting profile creator tool for Rob's popcorn coffee roaster. 
+Click and drag nodes to move them.
+Double click a line to add a node, and double click a node to remove it.
+This is a freeform text box, add your roasting notes here as you go.
+
+                              v Click here to load a roast profile v

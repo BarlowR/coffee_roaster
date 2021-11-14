@@ -696,7 +696,6 @@
             }
             reader.readAsText(fileList[0]);
         }
-            
 
         file_upload.addEventListener("change", loadProfile, false);
         load.addEventListener('click', (evt) => file_upload.click(), false);
@@ -719,9 +718,6 @@
         window.addEventListener('resize', function(event) {
             scaleWindow();
         }, true);
-
-        scaleWindow();
-
 
         nodes = rcode_string_in(`B0
 H0
@@ -751,14 +747,22 @@ H2,0,0,0
 H1,0
 F2,0,0,0
 F1,0
-;Howdy!  This is a roasting profile creator tool for Rob's popcorn coffee roaster. 
+;Howdy!  This is a roasting profile creator tool for Rob's coffee roaster. 
 Click and drag nodes to move them.
 Double click a line to add a node, and double click a node to remove it.
 This is a freeform text box, add your roasting notes here as you go.
 
                               v Click here to load a roast profile v`);
 
+        temp_nodes = nodes[0];
+        fan_nodes = nodes[1];
+        heater_nodes = nodes[2];
+        loaded = true;
+
         refresh(ctx, nodes);
+
+        scaleWindow();
+
 
 
     </script>

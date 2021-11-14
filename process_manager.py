@@ -18,4 +18,5 @@ if __name__ == "__main__":
     controller_process.start()
 
     api.RoasterAPI.register(app, route_base = '/', init_argument=command_queue)
-    app.run()
+    app.run(host = '192.168.0.24')
+
