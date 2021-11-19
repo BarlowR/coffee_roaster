@@ -6,9 +6,9 @@ import api.api as api
 
 
 app = Flask(__name__)
-roaster = ctl.RoasterController(verbose = True)
 command_queue = Queue()
-controller_process = Process(target=roaster.update, args=(command_queue,))
+roaster = ctl.RoasterController(command_queue, verbose = True)
+controller_process = Process(target=roaster.update)
 
 
 

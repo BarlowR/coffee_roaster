@@ -1,6 +1,7 @@
 import time
 import multiprocessing as mp
 import gpiozero
+import numpy as np
 
 from multiprocessing import Process, Queue
 
@@ -11,10 +12,11 @@ class RoasterController:
     # command_queue is a queue of commands sent to the controller. 
     # commands are injested one at a time and do not block normal operation
 
-    def __init__(self, verbose=False):
+    def __init__(self, command_queue, verbose=False):
         
         self.last_update_time = time.time_ns()
         self.verbose = verbose
+        self.command_queue = command_queue
         if self.verbose:
             print("Starting up")
 
@@ -29,6 +31,7 @@ class RoasterController:
         
         for key, value in self.adc.items():
             self.adc[key] = gpiozero.MCP3204(channel=value, clock_pin=21, mosi_pin=20, miso_pin=19, select_pin=16)
+            #tuple with (device, kalman instance) 
 
         self.internal_val = {"heater" : gpiozero.PWMOutputDevice(6, frequency = 0.5),
                         "fan" : gpiozero.PWMOutputDevice(12, frequency = 10),
@@ -49,7 +52,7 @@ class RoasterController:
 
     
     # update: main program loop
-    def update(self, command_queue):
+    def update(self):
         initial_time = time.time_ns()
         while(1):
 
@@ -58,9 +61,12 @@ class RoasterController:
             ts = time_ns - self.last_update_time
             self.last_update_time = time_ns
 
-            if (not command_queue.empty()):
-                new_command = command_queue.get()
-                self.parse_command(new_command)
+            if (not self.command_queue.empty()):
+                address, new_command = self.command_queue.get()
+                if (address == "controller"):
+                    self.parse_command(new_command)
+                else:
+                    command_queue.put((address, new_command))
 
             for key, value in self.last_point.items():
                 #grab the list of control points
@@ -78,7 +84,11 @@ class RoasterController:
                 if (len(control_points)> value + 1):
                     self.internal_val[key].value = self.interpolate(control_points[value], control_points[value+1], self.global_time)/100
                 
-            print(f'fan: {self.internal_val["fan"].value:.2f} heater: {self.internal_val["heater"].value:.2f} time: {self.global_time:.2f}')
+
+            # update kalman filter for temp
+            for name, adc in self.adc.items():
+                #update_kalman adc.value
+            #print(f'fan: {self.internal_val["fan"].value:.2f} heater: {self.internal_val["heater"].value:.2f} time: {self.global_time:.2f}')
 
 
 
@@ -166,6 +176,14 @@ class RoasterController:
             print(self.control_points["heater"])
 
 
+
+        elif (command[0] == "T"):
+            temp_data = {}
+            for name, item in self.adc.items():
+                temp_data[name] = self.resistance_to_temp(self.adc_to_resistance(item.value))
+            self.command_queue.put(("api", temp_data))
+            return True
+
         else :
             if self.verbose:
                 print("Invaid command")   
@@ -195,22 +213,53 @@ class RoasterController:
 
         return (elapsed_time * (delta_val/delta_t) + previous_node[1])
 
+    def adc_to_resistance(self, adc):
+        # adc is Vout/Vin
+        # Vout = Vin * Rt/(Rs + Rt)
+        # adc = Rt/(Rs + Rt)
+
+        rs = 1000
+        rt = rs/(1/adc - 1)
+
+        return rt
+
+    def resistance_to_temp(self, rt):
+        # Beta = ln(R1/R2)/(1/T1 - 1/T2) 
+
+        # beta/T2 = beta/T1 - ln(R1/R2)
+        # T2 = beta/(beta/T1 - ln(R1/R2))
+
+        t1 = 298.15 # 25c in kelvin
+        r1 = 10000 
+        beta = 3933
+
+        temp_kelvin = beta/(beta/t1 - np.log(r1/rt))
+        temp_c = temp_kelvin - 273.15
+
+        return temp_c
+
+    def adc_to_temp(adc):
+        return self.resistance_to_temp(self.adc_to_resistance(adc))
+
+        #https://www.desmos.com/calculator/ky78lxirfi
+
+
 
 if __name__ == "__main__":
     roaster = RoasterController(verbose = True)
 
     command_queue = Queue()
-    command_queue.put("F0,0")
-    command_queue.put("H0,0")
-    command_queue.put("F1,50")
-    command_queue.put("F2,100,5000")
-    command_queue.put("H2,50,10000")
-    command_queue.put("F2,100,5000")
-    command_queue.put("H2,30,5000")
-
-    command_queue.put("F0,0")
-    command_queue.put("H0,0")
-    command_queue.put("DUMP")
+    command_queue.put(("controller", "F0,0"))
+    command_queue.put(("controller", "H0,0"))
+    command_queue.put(("controller", "F1,50"))
+    command_queue.put(("controller", "F2,100,5000"))
+    command_queue.put(("controller", "H2,50,10000"))
+    command_queue.put(("controller", "F2,100,5000"))
+    command_queue.put(("controller", "H2,30,5000")
+)
+    command_queue.put(("controller", "F0,0"))
+    command_queue.put(("controller", "H0,0"))
+    command_queue.put(("controller", "DUMP"))
 
 
     roaster.update(command_queue)
