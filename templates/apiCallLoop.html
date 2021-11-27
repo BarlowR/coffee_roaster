@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<meta charset="UTF-8">
+
+<html>
+
+<body>
+
+    <div id = "time"></div>
+    <div id = "temps"></div>
+
+    <div id = "state"></div>
+    
+    <script>
+
+        const self_ip = "http://192.168.0.24:5000";
+        var time_div = document.getElementById("time");
+        var temp_div = document.getElementById("temps");
+        var state_div = document.getElementById("state");
+
+        var time = 0;
+        var temps = {};
+        var state = {};
+
+
+        var update = setTimeout(pull_data, 100);
+
+        function pull_data()
+        {
+            fetch(self_ip + "/get_state")
+            .then(response => response.json())
+            .then(data => {
+                //console.log(data)
+                time = data.time;
+                temps = data.temp;
+                state = data.state;
+                time_div.innerText = "Time: "+ JSON.stringify(time);
+                temp_div.innerText = "Temps: " + JSON.stringify(temps);
+                state_div.innerText = "States: " + JSON.stringify(state);
+
+                setTimeout(pull_data, 10);
+            });            
+        }
+
+    </script>
+</body>
+</html>

@@ -5,6 +5,7 @@ if (platform.processor() != "x86_64"):
     import gpiozero
 import numpy as np
 import controller.kalman as km
+import json
 
 from multiprocessing import Process, Queue
 
@@ -72,7 +73,7 @@ class RoasterController:
                                     [0, 0, 0, 0, 0, 0, 1,dt],
                                     [0, 0, 0, 0, 0, 0, 0, 1]])
 
-        Q = lambda dt : self.make_Q(1, dt)
+        Q = lambda dt : self.make_Q(.01, dt)
 
         B = lambda dt : np.zeros((8,8))
 
@@ -81,7 +82,7 @@ class RoasterController:
                        [0,0,0,0,1,0,0,0],
                        [0,0,0,0,0,0,1,0]]) # do conversion on adc measurements beforehand to make them temperature measurements
 
-        R = 4*np.eye(4)
+        R = .1*np.eye(4)
 
         self.temps = km.KalmanFilter(X, P, F, Q, B, H, R)
 
@@ -245,7 +246,7 @@ class RoasterController:
             for name, item in self.internal_val.items():
                 state_data[name] = item.value
 
-            self.command_queue.put(("api", (self.global_time, state_data, temp_data)))
+            self.command_queue.put(("api", json.dumps({"time": self.global_time, "state" : state_data, "temp" : temp_data})))
             return True
 
         else :

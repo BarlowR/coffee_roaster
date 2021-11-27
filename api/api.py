@@ -52,7 +52,8 @@ class RoasterAPI(FlaskView):
             self.command_queue.put(("controller", "H0,0"))
             self.command_queue.put(("controller", "H2,100,10000"))
         self.command_queue.put(("controller", "H0,0"))
-        return True
+        return render_template('apiCallLoop.html')
+
 
     @route('/get_temp')
     def get_temp(self):
