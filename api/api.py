@@ -47,9 +47,11 @@ class RoasterAPI(FlaskView):
 
     @route('/warmup_twice')
     def warmup(self):
+        self.command_queue.put(("controller", "H0,1"))
         for i in range(2):
             self.command_queue.put(("controller", "H0,0"))
             self.command_queue.put(("controller", "H2,100,10000"))
+        self.command_queue.put(("controller", "H0,0"))
         return True
 
     @route('/get_temp')
@@ -58,7 +60,6 @@ class RoasterAPI(FlaskView):
 
         temp_data = False
         while(not temp_data):
-            #print("waiting")
             if (self.command_queue.qsize() == 1):
                 address, value = self.command_queue.get()
                 if (address == "api"):
@@ -66,7 +67,28 @@ class RoasterAPI(FlaskView):
                     temp_data = str(value)
                 else:
                     self.command_queue.put((address, value))
+            else:
+                print("waiting for queue to empty")
         return temp_data
+
+
+    @route('/get_state')
+    def get_state(self):
+        self.command_queue.put(("controller", "S"))
+
+        state_data = False
+        while(not state_data):
+            if (self.command_queue.qsize() == 1):
+                address, value = self.command_queue.get()
+                if (address == "api"):
+                    print(value)
+                    state_data = str(value)
+                else:
+                    self.command_queue.put((address, value))
+            else:
+                print("waiting for queue to empty")
+        return state_data
+
 
     @route('/shutdown')
     def print_from_browser(self):
@@ -78,7 +100,7 @@ class RoasterAPI(FlaskView):
     def get_lock(self, func):
         if self.server_busy.acquire(False):
             data = func()
-            server_busy.release()
+            self.server_busy.release()
             return Response(data, status=201)
         else:
             return Response("busy", status=409)

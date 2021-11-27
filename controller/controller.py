@@ -1,7 +1,10 @@
 import time
+import platform
 import multiprocessing as mp
-import gpiozero
+if (platform.processor() != "x86_64"):
+    import gpiozero
 import numpy as np
+import controller.kalman as km
 
 from multiprocessing import Process, Queue
 
@@ -12,31 +15,13 @@ class RoasterController:
     # command_queue is a queue of commands sent to the controller. 
     # commands are injested one at a time and do not block normal operation
 
-    def __init__(self, command_queue, verbose=False):
+    def __init__(self, command_queue= None, verbose=False):
         
         self.last_update_time = time.time_ns()
         self.verbose = verbose
         self.command_queue = command_queue
         if self.verbose:
             print("Starting up")
-
-        self.rgb = [gpiozero.LED(8), gpiozero.LED(7), gpiozero.LED(25)]
-        for led in self.rgb:
-            led.off()
-
-        self.adc = {"heater": 0,
-                    "barrel_base": 1,
-                    "barrel_mid": 2,
-                    "barrel_tip": 3}
-        
-        for key, value in self.adc.items():
-            self.adc[key] = gpiozero.MCP3204(channel=value, clock_pin=21, mosi_pin=20, miso_pin=19, select_pin=16)
-            #tuple with (device, kalman instance) 
-
-        self.internal_val = {"heater" : gpiozero.PWMOutputDevice(6, frequency = 0.5),
-                        "fan" : gpiozero.PWMOutputDevice(12, frequency = 10),
-                        "temp" : gpiozero.PWMOutputDevice(13, frequency = 10)}
-
 
         self.control_points = { "fan" : [(0,0)],
                                 "heater" : [(0,0)],
@@ -46,6 +31,68 @@ class RoasterController:
                             "temp": 0}
 
         self.global_time = 0;
+
+
+
+        if (platform.processor() != "x86_64"): 
+            self.rgb = [gpiozero.LED(8), gpiozero.LED(7), gpiozero.LED(25)]
+            for led in self.rgb:
+                led.off()
+
+            self.adc = {"heater": 0,
+                        "barrel_base": 1,
+                        "barrel_mid": 2,
+                        "barrel_tip": 3}
+            
+            for key, value in self.adc.items():
+                self.adc[key] = gpiozero.MCP3204(channel=value, clock_pin=21, mosi_pin=20, miso_pin=19, select_pin=16)
+                 
+
+            self.internal_val = {"heater" : gpiozero.PWMOutputDevice(6, frequency = 0.5),
+                        "fan" : gpiozero.PWMOutputDevice(12, frequency = 10),
+                        "temp" : gpiozero.PWMOutputDevice(13, frequency = 10)}
+
+
+            self.Z = np.array([adc for adc in list(self.adc.values())])
+        else:
+            self.Z = np.array([[0.5, 0.4, 0.4, 0.3]]).T
+
+        X = np.zeros((8,1))
+
+        X[::2] = np.transpose(np.array([[self.adc_to_temp(adc.value) for adc in self.Z]]))
+
+        P = np.diag([10,10,10,10,10,10,10,10])
+
+        F = lambda dt : np.array([  [1,dt, 0, 0, 0, 0, 0, 0],
+                                    [0, 1, 0, 0, 0, 0, 0, 0],
+                                    [0, 0, 1,dt, 0, 0, 0, 0],
+                                    [0, 0, 0, 1, 0, 0, 0, 0],
+                                    [0, 0, 0, 0, 1,dt, 0, 0],
+                                    [0, 0, 0, 0, 0, 1, 0, 0],
+                                    [0, 0, 0, 0, 0, 0, 1,dt],
+                                    [0, 0, 0, 0, 0, 0, 0, 1]])
+
+        Q = lambda dt : self.make_Q(1, dt)
+
+        B = lambda dt : np.zeros((8,8))
+
+        H = np.array([ [1,0,0,0,0,0,0,0],
+                       [0,0,1,0,0,0,0,0],
+                       [0,0,0,0,1,0,0,0],
+                       [0,0,0,0,0,0,1,0]]) # do conversion on adc measurements beforehand to make them temperature measurements
+
+        R = 4*np.eye(4)
+
+        self.temps = km.KalmanFilter(X, P, F, Q, B, H, R)
+
+        # P : The state covariance matrix
+        # F : Function that takes in dt and returns the state transition n n × matrix.
+        # Q : The process noise covariance matrix.
+        # B : Function that takes in dt and returns the input effect matrix.
+        # H : The measurement matrix
+        # R : The measurement covariance matrix
+
+        np.set_printoptions(precision=3)
 
 
 
@@ -60,13 +107,18 @@ class RoasterController:
             self.global_time = time_ns/1000000
             ts = time_ns - self.last_update_time
             self.last_update_time = time_ns
+            
+            Z_read = np.transpose(np.array([[self.adc_to_temp(adc.value) for adc in self.Z]]))
+            self.temps.step(np.zeros((8,1)), Z_read, ts/1000000000)
+
+            #print(Z_read)
 
             if (not self.command_queue.empty()):
                 address, new_command = self.command_queue.get()
                 if (address == "controller"):
                     self.parse_command(new_command)
                 else:
-                    command_queue.put((address, new_command))
+                    self.command_queue.put((address, new_command))
 
             for key, value in self.last_point.items():
                 #grab the list of control points
@@ -86,7 +138,7 @@ class RoasterController:
                 
 
             # update kalman filter for temp
-            for name, adc in self.adc.items():
+            #for name, adc in self.adc.items():
                 #update_kalman adc.value
             #print(f'fan: {self.internal_val["fan"].value:.2f} heater: {self.internal_val["heater"].value:.2f} time: {self.global_time:.2f}')
 
@@ -181,7 +233,19 @@ class RoasterController:
             temp_data = {}
             for name, item in self.adc.items():
                 temp_data[name] = self.resistance_to_temp(self.adc_to_resistance(item.value))
-            self.command_queue.put(("api", temp_data))
+            self.command_queue.put(("api", (self.global_time, temp_data)))
+            return True
+        
+        elif (command[0] == "S"):
+            temp_data = {}
+            for name, item in self.adc.items():
+                temp_data[name] = self.resistance_to_temp(self.adc_to_resistance(item.value))
+
+            state_data = {}
+            for name, item in self.internal_val.items():
+                state_data[name] = item.value
+
+            self.command_queue.put(("api", (self.global_time, state_data, temp_data)))
             return True
 
         else :
@@ -238,16 +302,28 @@ class RoasterController:
 
         return temp_c
 
-    def adc_to_temp(adc):
+    def adc_to_temp(self, adc):
         return self.resistance_to_temp(self.adc_to_resistance(adc))
 
         #https://www.desmos.com/calculator/ky78lxirfi
+
+    def make_Q(self, q, dt):
+        Q = np.zeros((8, 8))
+
+        G = q * np.array([  [[.25*dt**4, .5*dt**3],
+                             [ .5*dt**3,    dt**2]]])
+
+        for i in range(0,8,2):
+            Q[i:i+2, i:i+2] = G
+
+        return(Q)
 
 
 
 if __name__ == "__main__":
     roaster = RoasterController(verbose = True)
 
+    '''
     command_queue = Queue()
     command_queue.put(("controller", "F0,0"))
     command_queue.put(("controller", "H0,0"))
@@ -263,3 +339,4 @@ if __name__ == "__main__":
 
 
     roaster.update(command_queue)
+    '''

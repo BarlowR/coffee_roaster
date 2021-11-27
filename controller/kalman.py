@@ -10,14 +10,14 @@ class KalmanFilter:
     # constuctor parameters :
     # X : The mean state estimate
     # P : The state covariance matrix
-    # F : Function that takes in dt and returns the state transition n n × matrix.
-    # Q : The process noise covariance matrix.
-    # B : Function that takes in dt and returns the input effect matrix.
+    # F : Function that takes in dt in seconds and returns the state transition n n × matrix.
+    # Q : Function that takes in dt in seconds and returns the process noise covariance matrix.
+    # B : Function that takes in dt in seconds and returns the input effect matrix.
     # H : The measurement matrix
     # R : The measurement covariance matrix
 
-    def __init__(self, X, P, F, Q, B, U, H, R):
-        self.X = X 
+    def __init__(self, X, P, F, Q, B, H, R):
+        self.X = X
         self.P = P
         self.F = F 
         self.Q = Q
@@ -26,6 +26,16 @@ class KalmanFilter:
         self.R = R
 
         print("initialized")
+
+
+    def initialize_Z(self, Z, Z_to_X, P, F, Q, B, U, H, R):
+        self.X = np.dot(Z, Z_to_X)
+        self.P = P
+        self.F = F 
+        self.Q = Q
+        self.B = B
+        self.H = H
+        self.R = R
 
     # predict
     # brief: make a prediction of the current state given the old state,
@@ -37,7 +47,7 @@ class KalmanFilter:
 
     def predict(self, U, dt):
         self.X = np.dot(self.F(dt), self.X) + np.dot(self.B(dt), U)
-        self.P = np.dot(self.F(dt), np.dot(self.P, self.F(dt).T)) + self.Q
+        self.P = np.dot(self.F(dt), np.dot(self.F(dt).T, self.P)) + self.Q(dt)
 
     # update
     # brief: update the mean state and covariance based on a new measurement
@@ -61,6 +71,7 @@ class KalmanFilter:
     def step(self, U, Z, dt):
         self.predict(U, dt)
         K, IM, IS = self.update(Z)
+
 
 
 if __name__ == "__main__":
@@ -109,9 +120,4 @@ if __name__ == "__main__":
     #kf.update(X, P, Z, H, R)
 
 
-    kf = KalmanFilter(X, P, F, Q, B, U, H, R)
-
-    for i in range(3):
-        kf.step(U, Z[i], 1)
-
-        print(kf.X)
+    # kf = KalmanFilter(X, P, F, Q, B, U, H, R)
