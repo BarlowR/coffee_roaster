@@ -73,7 +73,7 @@ class RoasterController:
                                     [0, 0, 0, 0, 0, 0, 1,dt],
                                     [0, 0, 0, 0, 0, 0, 0, 1]])
 
-        Q = lambda dt : self.make_Q(.01, dt)
+        Q = lambda dt : self.make_Q(.5, dt)
 
         B = lambda dt : np.zeros((8,8))
 
@@ -82,7 +82,7 @@ class RoasterController:
                        [0,0,0,0,1,0,0,0],
                        [0,0,0,0,0,0,1,0]]) # do conversion on adc measurements beforehand to make them temperature measurements
 
-        R = .1*np.eye(4)
+        R = .4*np.eye(4)
 
         self.temps = km.KalmanFilter(X, P, F, Q, B, H, R)
 
@@ -231,16 +231,18 @@ class RoasterController:
 
 
         elif (command[0] == "T"):
-            temp_data = {}
-            for name, item in self.adc.items():
-                temp_data[name] = self.resistance_to_temp(self.adc_to_resistance(item.value))
+            temp_data = {"0" : self.temps.X[0, 0],
+                        "1" : self.temps.X[2, 0], 
+                        "2" : self.temps.X[4, 0], 
+                        "3" : self.temps.X[6, 0]}
             self.command_queue.put(("api", (self.global_time, temp_data)))
             return True
         
         elif (command[0] == "S"):
-            temp_data = {}
-            for name, item in self.adc.items():
-                temp_data[name] = self.resistance_to_temp(self.adc_to_resistance(item.value))
+            temp_data = {"0" : self.temps.X[0, 0],
+                        "1" : self.temps.X[2, 0], 
+                        "2" : self.temps.X[4, 0], 
+                        "3" : self.temps.X[6, 0]}
 
             state_data = {}
             for name, item in self.internal_val.items():
