@@ -3,8 +3,14 @@
 ##### High Priority
 
 Temp/State Realtime Plot
+
+*change colors
+*stop button
+
 Profile Loading/Sending
+
 Temperature PID Controller
+
 Hook up relays
 
 
