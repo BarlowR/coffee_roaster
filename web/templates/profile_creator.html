@@ -1,0 +1,64 @@
+
+
+
+<!DOCTYPE html>
+<meta charset="UTF-8">
+
+<html>
+
+<style>
+    #color_title {
+        color: #251200;
+    }
+    
+    #color_axes {
+        color: #000000;
+    }
+    
+    #color_temp {
+        color: #251200;
+    }
+    #color_heater {
+        color: #FF356E;
+    }
+    
+    #color_fan {
+        color: #05003666;
+    }
+</style>
+
+<head>
+    <script src = "js/canvas_plotting.js"></script>
+</head>
+<body>
+
+    <canvas id="profileCanvas" style="border:1px solid #000000; display: block; margin: auto;">
+    </canvas>
+    <br>
+    <textarea id="notes" style="border:1px solid #000000; display: block; margin: auto;"></textarea>
+
+    <div id = "buttons" style = "width : 300px; display:  flex; justify-content: center; flex-direction: column; margin: auto;"> 
+        <button id = 'load'>load profile</button>
+        <div style="display:flex; justify-content:center;">
+            <button id = 'save'>save</button> 
+            <button id = 'send'>send it</button>
+        </div>
+        <input type ="file" id="upload_profile" style="display:none;">
+    </div>
+
+    <div id = "color_title"></div>
+    <div id = "color_axes"></div>
+    <div id = "color_temp"></div>
+    <div id = "color_heater"></div>
+    <div id = "color_fan"></div>
+
+
+    <script src="js/profile_creator.js"></script>
+
+</body>
+</html>
+
+
+
+
+

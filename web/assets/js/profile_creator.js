@@ -3,6 +3,8 @@ const ctx = c.getContext("2d");
 
 const save_button = document.getElementById('save');
 const file_upload = document.getElementById('upload_profile');
+const load = document.getElementById('load');
+
 
 var notes_box = document.getElementById("notes");
 
@@ -25,6 +27,8 @@ color_heater = window.getComputedStyle(color_heater).color.toString()
 
 var color_fan = document.getElementById("color_fan")
 color_fan = window.getComputedStyle(color_fan).color.toString()
+
+color_ref = {"temp" : color_temp, "fan" : color_heater, "heater" : color_fan}
 
 
 //set our canvas sizing. Everything drawn on the canvas will be in relation to this coordinate frame
@@ -217,7 +221,7 @@ function mouseDblClick(evt)
                             if (dist < 4)
                             {
                                 //console.log("new StateNode");
-                                new_node = new StateNode(ctx, node_array[i].type, 0, 0);
+                                new_node = new StateNode(ctx, node_array[i].type, 0, 0, color_ref[node_array[i].type]);
                                 new_node.moveToCanvas(mousePos, internal_plot);
                                 node_array.splice(i, 0, new_node);
                                 refresh(ctx, node_arrays);
@@ -249,12 +253,15 @@ function loadProfile(evt)
     
     var reader = new FileReader();
     reader.onload = function(event){
-        nodes = StateNode.rcode_string_in(event.target.result);
+        nodes_and_note = StateNode.rcode_string_in(event.target.result, color_ref);
+        nodes = nodes_and_note[0]
+        note = nodes_and_note[1]
         for (const node_list of nodes){
             for (const node of node_list){
                 node.updateCanvasPos(internal_plot)
             }
         }
+        notes_box.innerHTML = note;
 
         temp_nodes = nodes[0];
         fan_nodes = nodes[1];
@@ -290,7 +297,7 @@ window.addEventListener('resize', function(event) {
     scaleWindow();
 }, true);
 
-nodes = StateNode.rcode_string_in(`B0
+nodes_and_note = StateNode.rcode_string_in(`B0
 H0
 F0
 B2,0,43000,0
@@ -323,15 +330,17 @@ Click and drag nodes to move them.
 Double click a line to add a node, and double click a node to remove it.
 This is a freeform text box, add your roasting notes here as you go.
 
-                                v Click here to load a roast profile v`);
+                                v Click here to load a roast profile v`, color_ref);
 
-console.log(nodes);
+nodes = nodes_and_note[0]
+note = nodes_and_note[1]
 
 for (const node_list of nodes){
     for (const node of node_list){
         node.updateCanvasPos(internal_plot)
     }
 }
+notes_box.innerHTML = note;
 temp_nodes = nodes[0];
 fan_nodes = nodes[1];
 heater_nodes = nodes[2];

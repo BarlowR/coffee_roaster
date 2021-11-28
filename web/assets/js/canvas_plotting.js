@@ -1,5 +1,5 @@
 class StateNode {
-    constructor(context, type, time, val) 
+    constructor(context, type, time, val, color) 
     {
 
         this.click_margin_node = 15;
@@ -11,7 +11,7 @@ class StateNode {
         this.type = type;
         this.val = val;
         this.time = time;
-        this.color = "";
+        this.color = color
         this.unit = "";
         this.valToCanvas;
         this.valFromCanvas;
@@ -22,21 +22,18 @@ class StateNode {
 
         switch (type){
             case "temp":
-                this.color = color_temp;
                 this.valToCanvas = tempToCanvas;
                 this.valFromCanvas = canvasToTemp;
                 this.unit = "°C"
                 break;
 
             case "fan":
-                this.color = color_fan;
                 this.valToCanvas = percentToCanvas;
                 this.valFromCanvas = canvasToPercent;
                 this.unit = "%"
                 break;
 
             case "heater":
-                this.color = color_heater;
                 this.valToCanvas = percentToCanvas;
                 this.valFromCanvas = canvasToPercent;
                 this.unit = "%"
@@ -193,7 +190,7 @@ class StateNode {
         }
     }
 
-    static rcode_string_in(text)
+    static rcode_string_in(text, colors)
     {
        
         var time = [0,0,0]; //temp, fan, heater
@@ -205,10 +202,6 @@ class StateNode {
         var active_node_array;
 
         var command_note = text.split(";");
-        if (command_note.length > 1)
-        {
-            notes_box.value = command_note[1];
-        }
         var command_array = command_note[0].split("\n");
 
         for (var command of command_array)
@@ -239,14 +232,14 @@ class StateNode {
             var new_node;
             switch (cmd_pieces[0][1]) {
                 case "0":
-                    new_node = new StateNode(ctx, type, time[time_index], 0);
+                    new_node = new StateNode(ctx, type, time[time_index], 0, colors[type]);
                     break;
                 case "1":
-                    new_node = new StateNode(ctx, type, time[time_index], cmd_pieces[1]);
+                    new_node = new StateNode(ctx, type, time[time_index], cmd_pieces[1], colors[type]);
                     break;
                 case "2":
                     time[time_index] += cmd_pieces[2]/1000;
-                    new_node = new StateNode(ctx, type, time[time_index], cmd_pieces[1]);
+                    new_node = new StateNode(ctx, type, time[time_index], cmd_pieces[1], colors[type]);
                     break;
 
                 default:
@@ -256,7 +249,12 @@ class StateNode {
             //console.log(new_node);
             //console.log(active_node_array);
         }
-        return ([t_nodes, h_nodes, f_nodes]);
+        var note_return = "";
+        if (command_note.length > 1)
+        {
+            note_return = command_note[1];
+        }
+        return ([[t_nodes, h_nodes, f_nodes], note_return]);
     }
 }
 

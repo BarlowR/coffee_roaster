@@ -73,7 +73,7 @@ class RoasterController:
                                     [0, 0, 0, 0, 0, 0, 1,dt],
                                     [0, 0, 0, 0, 0, 0, 0, 1]])
 
-        Q = lambda dt : self.make_Q(.5, dt)
+        Q = lambda dt : self.make_Q(.8, dt)
 
         B = lambda dt : np.zeros((8,8))
 
@@ -82,7 +82,7 @@ class RoasterController:
                        [0,0,0,0,1,0,0,0],
                        [0,0,0,0,0,0,1,0]]) # do conversion on adc measurements beforehand to make them temperature measurements
 
-        R = .4*np.eye(4)
+        R = .7*np.eye(4)
 
         self.temps = km.KalmanFilter(X, P, F, Q, B, H, R)
 

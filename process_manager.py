@@ -5,7 +5,10 @@ import controller.controller as ctl
 import api.api as api
 
 
-app = Flask(__name__)
+app = Flask(__name__, 
+            static_url_path='', 
+            static_folder='web/assets',
+            template_folder='web/templates')
 command_queue = Queue()
 roaster = ctl.RoasterController(command_queue, verbose = True)
 controller_process = Process(target=roaster.update)
@@ -18,5 +21,6 @@ if __name__ == "__main__":
     controller_process.start()
 
     api.RoasterAPI.register(app, route_base = '/', init_argument=command_queue)
+
     app.run(host = '192.168.0.24')
 

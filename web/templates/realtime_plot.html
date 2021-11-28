@@ -1,6 +1,5 @@
 
 
-
 <!DOCTYPE html>
 <meta charset="UTF-8">
 
@@ -23,28 +22,27 @@
     }
     
     #color_fan {
-        color: #05003666;
+        color: #0c073f;
     }
 </style>
 
 <head>
-    <script src = "./assets/js/canvas_plotting.js"></script>
+    <script src = "js/canvas_plotting.js"></script>
 </head>
 <body>
 
-    <canvas id="profileCanvas" style="border:1px solid #000000; display: block; margin: auto;">
+    <canvas id="plotCanvas" style="border:1px solid #000000; display: block; margin: auto;">
     </canvas>
     <br>
-    <textarea id="notes" style="border:1px solid #000000; display: block; margin: auto;"></textarea>
 
     <div id = "buttons" style = "width : 300px; display:  flex; justify-content: center; flex-direction: column; margin: auto;"> 
-        <button id = 'load'>load profile</button>
         <div style="display:flex; justify-content:center;">
-            <button id = 'save'>save</button> 
-            <button id = 'send'>send it</button>
+            <button id = 'load'>load profile</button> 
+            <button id = 'start'>start roasting</button>
         </div>
         <input type ="file" id="upload_profile" style="display:none;">
     </div>
+    <div id = "notes"></div>
 
     <div id = "color_title"></div>
     <div id = "color_axes"></div>
@@ -52,13 +50,10 @@
     <div id = "color_heater"></div>
     <div id = "color_fan"></div>
 
+    <script src="js/realtime_plot.js"></script>
 
-    <script src="./assets/js/profile_creator.js"></script>
+    
 
 </body>
 </html>
-
-
-
-
 

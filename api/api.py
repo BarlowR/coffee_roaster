@@ -52,7 +52,7 @@ class RoasterAPI(FlaskView):
             self.command_queue.put(("controller", "H0,0"))
             self.command_queue.put(("controller", "H2,100,10000"))
         self.command_queue.put(("controller", "H0,0"))
-        return render_template('apiCallLoop.html')
+        return "warmingup"
 
 
     @route('/get_temp')
@@ -90,6 +90,9 @@ class RoasterAPI(FlaskView):
                 print("waiting for queue to empty")
         return state_data
 
+    @route('/plot')
+    def plot(self):
+        return render_template('realtime_plot.html')
 
     @route('/shutdown')
     def print_from_browser(self):
