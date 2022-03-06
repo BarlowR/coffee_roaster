@@ -146,7 +146,7 @@ class StateNode {
 
     static rcode_string_out(node_arrays)
     {
-        var command_string = "B0\nH0\nF0\n";
+        var command_string = "R0\nB0,1\nH0,1\nF0,1\n";
         var node;
         var t_nodes = node_arrays[0].slice(0);
         var h_nodes = node_arrays[1].slice(0);
@@ -158,24 +158,24 @@ class StateNode {
 
         while(1)
         {
-            command_dict = {"temp" : "B", 
+            var command_dict = {"temp" : "B", 
                             "fan" : "F",
                             "heater" : "H"};
 
-            next_node_array = triple_node_comparison(t_nodes, f_nodes, h_nodes);
+            var next_node_array = StateNode.triple_node_comparison(t_nodes, f_nodes, h_nodes);
 
 
             if (next_node_array)
             {
 
-                node = next_node_array.shift();
+                var node = next_node_array.shift();
 
                 if (next_node_array.length > 0)
                 {
                     var next_node_time = next_node_array[0].time
                     var duration = next_node_time - node.time
                     var next_node_val = next_node_array[0].val
-                    command_string += command_dict[node.type] +"2,"+next_node_val.toString()+","+(1000*duration).toString()+",0\n"
+                    command_string += command_dict[node.type] +"2,"+next_node_val.toString()+","+(1000*duration).toString()+"\n"
                 }
                 else
                 {
@@ -185,7 +185,8 @@ class StateNode {
             }
             else
             {
-                return command_string + ";" + notes_box.value;
+                console.log(command_string)
+                return command_string;
             }
         }
     }

@@ -279,7 +279,7 @@ file_upload.addEventListener("change", loadProfile, false);
 load.addEventListener('click', (evt) => file_upload.click(), false);
 
 save_button.addEventListener('click', function(){
-    var string_out = rcode_string_out([temp_nodes, heater_nodes, fan_nodes]);
+    var string_out = StateNode.rcode_string_out([temp_nodes, heater_nodes, fan_nodes]) + ";" + notes_box.value;
     var filename = "rcode.txt";
     downloadText(string_out, filename, "text");
 })

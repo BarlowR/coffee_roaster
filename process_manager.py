@@ -22,5 +22,5 @@ if __name__ == "__main__":
 
     api.RoasterAPI.register(app, route_base = '/', init_argument=command_queue)
 
-    app.run(host = '192.168.0.24')
+    app.run(host = '192.168.0.50')
 

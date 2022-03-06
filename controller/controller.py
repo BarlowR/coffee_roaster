@@ -31,7 +31,8 @@ class RoasterController:
                             "heater" : 0,
                             "temp": 0}
 
-        self.global_time = 0;
+        self.global_time = 0
+        self.initial_time = 0
 
 
 
@@ -49,12 +50,11 @@ class RoasterController:
                 self.adc[key] = gpiozero.MCP3204(channel=value, clock_pin=21, mosi_pin=20, miso_pin=19, select_pin=16)
                  
 
-            self.internal_val = {"heater" : gpiozero.PWMOutputDevice(6, frequency = 0.5),
-                        "fan" : gpiozero.PWMOutputDevice(12, frequency = 10),
-                        "temp" : gpiozero.PWMOutputDevice(13, frequency = 10)}
-
+            self.fan = 0
+            self.heater = 0
 
             self.Z = np.array([adc for adc in list(self.adc.values())])
+
         else:
             self.Z = np.array([[0.5, 0.4, 0.4, 0.3]]).T
 
@@ -101,10 +101,16 @@ class RoasterController:
     
     # update: main program loop
     def update(self):
-        initial_time = time.time_ns()
+
+        heater = gpiozero.PWMOutputDevice(12, initial_value = 0, frequency = 5)
+        fan = gpiozero.PWMOutputDevice(13, initial_value = 0, frequency = 5)
+
+        
+        self.initial_time = time.time_ns()
+
         while(1):
 
-            time_ns = time.time_ns() - initial_time
+            time_ns = time.time_ns() - self.initial_time
             self.global_time = time_ns/1000000
             ts = time_ns - self.last_update_time
             self.last_update_time = time_ns
@@ -117,6 +123,7 @@ class RoasterController:
             if (not self.command_queue.empty()):
                 address, new_command = self.command_queue.get()
                 if (address == "controller"):
+                    print(f"     {new_command}")
                     self.parse_command(new_command)
                 else:
                     self.command_queue.put((address, new_command))
@@ -135,17 +142,15 @@ class RoasterController:
 
                 # if we have more than one point, interpolate between the two that we're at
                 if (len(control_points)> value + 1):
-                    self.internal_val[key].value = self.interpolate(control_points[value], control_points[value+1], self.global_time)/100
-                
+                    if (key == "heater"):
+                        heater.value = self.interpolate(control_points[value], control_points[value+1], self.global_time)/100
+                    if (key == "fan"):
+                        fan.value = self.interpolate(control_points[value], control_points[value+1], self.global_time)/100
+                    
+                    self.heater = heater.value
+                    self.fan = fan.value
 
-            # update kalman filter for temp
-            #for name, adc in self.adc.items():
-                #update_kalman adc.value
-            #print(f'fan: {self.internal_val["fan"].value:.2f} heater: {self.internal_val["heater"].value:.2f} time: {self.global_time:.2f}')
-
-
-
-
+                    #print(f'fan: {self.fan:.2f} heater: {self.heater:.2f} time: {self.global_time:.2f}')
 
 
     #parse string commands
@@ -155,9 +160,17 @@ class RoasterController:
         if self.verbose:
             print(command)
 
+
+        if (command[0] == "R0"):
+            print("Resetting...")
+            self.initial_time = 0
+            for key, value in self.last_point.items():
+                #celar each list of control points
+                self.control_points[key] = []
+
         #fans
-        if (command[0] == "F0"):
-            if (self.read_command_value(command[1]) == 1):
+        elif (command[0] == "F0"):
+            if (len(command) > 1 and self.read_command_value(command[1]) == 1):
                 prev_time = self.global_time
             else:
                 prev_time = self.control_points["fan"][-1][0]
@@ -182,7 +195,7 @@ class RoasterController:
 
         #heater
         elif (command[0] == "H0"):
-            if (self.read_command_value(command[1]) == 1):
+            if (len(command) > 1 and self.read_command_value(command[1]) == 1):
                 prev_time = self.global_time
             else:
                 prev_time = self.control_points["heater"][-1][0]
@@ -244,16 +257,15 @@ class RoasterController:
                         "2" : self.temps.X[4, 0], 
                         "3" : self.temps.X[6, 0]}
 
-            state_data = {}
-            for name, item in self.internal_val.items():
-                state_data[name] = item.value
+            state_data = {  "fan" : self.fan, 
+                            "heater" : self.heater}
 
             self.command_queue.put(("api", json.dumps({"time": self.global_time, "state" : state_data, "temp" : temp_data})))
             return True
 
         else :
             if self.verbose:
-                print("Invaid command")   
+                print(f"Invalid command: {command[0]}")   
             return False
 
     def read_command_value(self, val):

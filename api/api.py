@@ -9,6 +9,7 @@ from flask_classful import FlaskView, route
 
 import threading
 from time import sleep
+import json
 
 class RoasterAPI(FlaskView):
 
@@ -54,6 +55,12 @@ class RoasterAPI(FlaskView):
         self.command_queue.put(("controller", "H0,0"))
         return "warmingup"
 
+    @route('/turn_on')
+    def turn_on(self):
+        self.command_queue.put(("controller", "H0,1"))
+        self.command_queue.put(("controller", "H2,100,100"))
+        return "warmingup"
+
 
     @route('/get_temp')
     def get_temp(self):
@@ -61,15 +68,13 @@ class RoasterAPI(FlaskView):
 
         temp_data = False
         while(not temp_data):
-            if (self.command_queue.qsize() == 1):
+            for i in range(self.command_queue.qsize()): # iterates through the whole queue, saves then discards self addressed items, and puts everything back in order
                 address, value = self.command_queue.get()
                 if (address == "api"):
                     print(value)
                     temp_data = str(value)
                 else:
                     self.command_queue.put((address, value))
-            else:
-                print("waiting for queue to empty")
         return temp_data
 
 
@@ -79,24 +84,41 @@ class RoasterAPI(FlaskView):
 
         state_data = False
         while(not state_data):
-            if (self.command_queue.qsize() == 1):
+            for i in range(self.command_queue.qsize()): # iterates through the whole queue, saves then discards self addressed items, and puts everything back in order
                 address, value = self.command_queue.get()
                 if (address == "api"):
                     print(value)
                     state_data = str(value)
                 else:
                     self.command_queue.put((address, value))
-            else:
-                print("waiting for queue to empty")
         return state_data
 
     @route('/plot')
     def plot(self):
         return render_template('realtime_plot.html')
 
+    @route('/create')
+    def create(self):
+        return render_template('profile_creator.html')
+
+    @route('/reset')
+    def reset(self):
+        self.command_queue.put(("controller", "R0"))
+
     @route('/shutdown')
-    def print_from_browser(self):
-        self.command_queue.put(("controller", "B0"))
+    def shutdown(self):
+        for i in range(self.command_queue.qsize()): # iterates through the whole queue and discard everything
+                address, value = self.command_queue.get()
+        self.command_queue.put(("controller", "H0"))
+        self.command_queue.put(("controller", "F0"))
+        return ""
+
+    @route("/commands", methods=['GET', 'POST'])
+    def commands(self):
+        commands = json.loads(request.data)
+        print(commands)
+        for command in commands:
+            self.command_queue.put(("controller", command))
         return ""
 
 
