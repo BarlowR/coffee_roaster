@@ -201,8 +201,7 @@ function loadProfile(evt)
 
 function updateState(callbackFunc){
     console.log("fetching")
-    fetch(api_ip + "/get_state")
-        .then(response => response.json())
+    fetch(api_ip + "/get_state").then(response => response.json())
         .then(data => {
 
             callbackFunc(data);
@@ -210,7 +209,8 @@ function updateState(callbackFunc){
             {
                 setTimeout(()=>{updateState(callbackFunc);}, 500);
             }
-        });  
+        }); 
+
 }
 
 function continuoutUpdateState(){
@@ -220,7 +220,7 @@ function continuoutUpdateState(){
 
 function startRoasting(evt)
 {
-    const start_time = time;
+    
 
     fetch(api_ip +"/commands",{
         method: 'POST',
@@ -229,31 +229,34 @@ function startRoasting(evt)
         },
         body: JSON.stringify(StateNode.rcode_string_out([temp_nodes, heater_nodes, fan_nodes]).split("\n"))
     })
-    updateState((d) => {
-        time = d.time;
-        temps = d.temp;
-        state = d.state;
+    
+    setTimeout(()=>{updateState((d) => {
+            time = d.time;
+            temps = d.temp;
+            state = d.state;
 
-        updateState(function(data){
-            updating = true;
+            const start_time = time;
+
+            updateState(function(data){
+                updating = true;
+                
+                old_time = time;
+                old_temps = temps;
+                old_state = state;
+                //console.log(data)
+                time = data.time;
+                temps = data.temp;
+                state = data.state;
+
+                if (time-start_time > 1000000)
+                {
+                    updating = false;
+                }
+
+                draw_state_lines(ctx, start_time);
+            });
             
-            old_time = time;
-            old_temps = temps;
-            old_state = state;
-            //console.log(data)
-            time = data.time;
-            temps = data.temp;
-            state = data.state;
-
-            if (time-start_time > 1000000)
-            {
-                updating = false;
-            }
-
-            draw_state_lines(ctx, start_time);
-        });
-        
-    });   
+        });}, 1000);   
 }
 
 function draw_state_lines(context, start_time)

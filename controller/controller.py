@@ -18,6 +18,7 @@ class RoasterController:
 
     def __init__(self, command_queue= None, verbose=False):
         
+        self.command_inc = 0
         self.last_update_time = time.time_ns()
         self.verbose = verbose
         self.command_queue = command_queue
@@ -121,12 +122,23 @@ class RoasterController:
             #print(Z_read)
 
             if (not self.command_queue.empty()):
-                address, new_command = self.command_queue.get()
-                if (address == "controller"):
-                    print(f"     {new_command}")
+                address, new_command, order = self.command_queue.get()
+                if (address == "controller" and order == self.command_inc):
+
+                    print(f"     {new_command}, {order}")
+                    self.command_inc += 1
+                    self.parse_command(new_command)
+
+
+                elif (address == "controller" and 
+                        new_command == "R3"
+                        or new_command == "S"
+                        or new_command == "T"):
+
+                    print(f"   ASYNC {new_command}")
                     self.parse_command(new_command)
                 else:
-                    self.command_queue.put((address, new_command))
+                    self.command_queue.put((address, new_command, order))
 
             for key, value in self.last_point.items():
                 #grab the list of control points
@@ -149,6 +161,12 @@ class RoasterController:
                     
                     self.heater = heater.value
                     self.fan = fan.value
+                elif(len(control_points)> value):
+                    if (key == "heater"):
+                        heater.value = control_points[value][1]/100
+                    if (key == "fan"):
+                        fan.value = control_points[value][1]/100
+                    
 
                     #print(f'fan: {self.fan:.2f} heater: {self.heater:.2f} time: {self.global_time:.2f}')
 
@@ -162,11 +180,35 @@ class RoasterController:
 
 
         if (command[0] == "R0"):
-            print("Resetting...")
+            print("Resetting control points and time")
             self.initial_time = 0
-            for key, value in self.last_point.items():
+            self.control_points = { "fan" : [(0,0)],
+                                "heater" : [(0,0)],
+                                "temp" : [(0,0), (10000, 0)]}
+
+            self.last_point = { "fan" : 0,
+                            "heater" : 0,
+                            "temp": 0}
+        
+        elif (command[0] == "R1"):
+            print("Clearing command_queue")
+            while (self.command_queue.qsize() > 0):
                 #celar each list of control points
-                self.control_points[key] = []
+                self.command_queue.get()
+            self.command_inc = 0
+
+        elif (command[0] == "R3"):
+            print("Clearing All")
+            while (self.command_queue.qsize() > 0):
+                #celar each list of control points
+                self.command_queue.get()
+            self.command_inc = 0
+
+            self.command_queue.put(("controller", "H0,0",1))
+            self.command_queue.put(("controller", "F0,0",2))
+            self.command_queue.put(("controller", "R0",3))
+            self.command_queue.put(("controller", "R1",4))
+
 
         #fans
         elif (command[0] == "F0"):
@@ -248,7 +290,7 @@ class RoasterController:
                         "1" : self.temps.X[2, 0], 
                         "2" : self.temps.X[4, 0], 
                         "3" : self.temps.X[6, 0]}
-            self.command_queue.put(("api", (self.global_time, temp_data)))
+            self.command_queue.put(("api", (self.global_time, temp_data), 0))
             return True
         
         elif (command[0] == "S"):
@@ -260,7 +302,7 @@ class RoasterController:
             state_data = {  "fan" : self.fan, 
                             "heater" : self.heater}
 
-            self.command_queue.put(("api", json.dumps({"time": self.global_time, "state" : state_data, "temp" : temp_data})))
+            self.command_queue.put(("api", json.dumps({"time": self.global_time, "state" : state_data, "temp" : temp_data}), 0))
             return True
 
         else :
@@ -337,21 +379,3 @@ class RoasterController:
 
 if __name__ == "__main__":
     roaster = RoasterController(verbose = True)
-
-    '''
-    command_queue = Queue()
-    command_queue.put(("controller", "F0,0"))
-    command_queue.put(("controller", "H0,0"))
-    command_queue.put(("controller", "F1,50"))
-    command_queue.put(("controller", "F2,100,5000"))
-    command_queue.put(("controller", "H2,50,10000"))
-    command_queue.put(("controller", "F2,100,5000"))
-    command_queue.put(("controller", "H2,30,5000")
-)
-    command_queue.put(("controller", "F0,0"))
-    command_queue.put(("controller", "H0,0"))
-    command_queue.put(("controller", "DUMP"))
-
-
-    roaster.update(command_queue)
-    '''

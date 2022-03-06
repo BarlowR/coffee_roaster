@@ -195,7 +195,7 @@ class StateNode {
     {
        
         var time = [0,0,0]; //temp, fan, heater
-        var time_index = 0
+        var time_index = 0;
 
         var t_nodes = [];
         var h_nodes = [];
@@ -208,7 +208,7 @@ class StateNode {
         for (var command of command_array)
         {
             var cmd_pieces = command.split(",");
-            //console.log(cmd_pieces);
+            console.log(cmd_pieces);
             
             var type = ""
 
@@ -216,18 +216,20 @@ class StateNode {
                 case "B":
                     active_node_array = t_nodes;
                     type = "temp";
-                    time_index = 0
+                    time_index = 0;
                     break;
                 case "F":
                     active_node_array = f_nodes;
                     type = "fan";
-                    time_index = 1
+                    time_index = 1;
                     break;
                 case "H":
                     active_node_array = h_nodes;
                     type = "heater";
-                    time_index = 2
+                    time_index = 2;
                     break;
+                case "R":
+                    continue;
             }
 
             var new_node;
