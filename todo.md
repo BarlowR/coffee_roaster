@@ -2,17 +2,17 @@
 
 ##### High Priority
 
-Temp/State Realtime Plot
-
-  *change colors
-  *stop button
-
-Profile Loading/Sending
+Stop roasting if user leaves webpage
 
 Temperature PID Controller
 
-Hook up relays
+Assemble hardware
+
 
 
 ##### Low Priority
+Profile passing between create/plot pages
+
 Put lights into profile creator and plotting
+
+Post some pictures to github repo
