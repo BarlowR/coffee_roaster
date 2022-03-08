@@ -28,7 +28,7 @@ color_heater = window.getComputedStyle(color_heater).color.toString()
 var color_fan = document.getElementById("color_fan")
 color_fan = window.getComputedStyle(color_fan).color.toString()
 
-color_ref = {"temp" : color_temp, "fan" : color_heater, "heater" : color_fan}
+color_ref = {"temp" : color_temp, "heater" : color_heater, "fan" : color_fan}
 
 
 //set our canvas sizing. Everything drawn on the canvas will be in relation to this coordinate frame
@@ -263,8 +263,8 @@ function loadProfile(evt)
         }
         notes_box.innerHTML = note;
 
-        temp_nodes = nodes[0];
-        fan_nodes = nodes[1];
+        temp_nodes = nodes[1];
+        fan_nodes = nodes[0];
         heater_nodes = nodes[2];
 
         loaded = true;
@@ -342,8 +342,9 @@ for (const node_list of nodes){
 }
 notes_box.innerHTML = note;
 temp_nodes = nodes[0];
-fan_nodes = nodes[1];
-heater_nodes = nodes[2];
+heater_nodes = nodes[1];
+fan_nodes = nodes[2];
+
 loaded = true;
 
 refresh(ctx, nodes);
