@@ -31,6 +31,7 @@ const file_upload = document.getElementById('upload_profile');
 const load = document.getElementById('load');
 
 const start = document.getElementById('start');
+const stop = document.getElementById('stop');
 
 const notes_div = document.getElementById('notes');
 
@@ -59,6 +60,7 @@ var old_temps = {};
 var old_state = {};
 
 var updating = false;
+var kill_callback = false;
 
 var loaded = false;
 
@@ -170,6 +172,8 @@ function mouseDblClick(evt)
 
 function loadProfile(evt)
 {
+    stopRoasting();
+    stopPlotting(); 
     fileList = this.files;
     //console.log(fileList);
     
@@ -201,11 +205,13 @@ function loadProfile(evt)
 
 function updateState(callbackFunc){
     console.log("fetching")
+    //grab the state 
     fetch(api_ip + "/get_state").then(response => response.json())
         .then(data => {
-
+            //when we get a response, invoke the callback function with the data we just got
             callbackFunc(data);
-            if (updating)
+            //if we're updating the plot, call this function again after half a second
+            if (updating && !kill_callback)
             {
                 setTimeout(()=>{updateState(callbackFunc);}, 500);
             }
@@ -213,15 +219,24 @@ function updateState(callbackFunc){
 
 }
 
-function continuoutUpdateState(){
-
+function stopPlotting(){
+    if (temp_nodes.length > 0 && heater_nodes.length > 0 && fan_nodes.length > 0) refresh(ctx, [temp_nodes, heater_nodes, fan_nodes]);
+    kill_callback = true;
+    setTimeout(()=>{
+        refresh(ctx, [temp_nodes, heater_nodes, fan_nodes]);
+        kill_callback = false;
+    }, 1000);
 }
 
 
 function startRoasting(evt)
 {
-    
-
+    //clear any previous plot
+    refresh(ctx, [temp_nodes, heater_nodes, fan_nodes]);
+    //hide the start button
+    start.style.display = "none";
+    file_upload.disabled = true;
+    //send the commands
     fetch(api_ip +"/commands",{
         method: 'POST',
         headers:{
@@ -229,14 +244,24 @@ function startRoasting(evt)
         },
         body: JSON.stringify(StateNode.rcode_string_out([temp_nodes, heater_nodes, fan_nodes]).split("\n"))
     })
-    
+
+    // stop plotting and wait a second for plotting to stop
+    stopPlotting();
     setTimeout(()=>{updateState((d) => {
+
+            //clear any previous plot again
+            refresh(ctx, [temp_nodes, heater_nodes, fan_nodes]);
+
             time = d.time;
             temps = d.temp;
             state = d.state;
 
             const start_time = time;
+            updating = false; //this keeps the initial call from looping
+            kill_callback = false;
 
+            //call update state from the callback once with 
+            // updating = true in the callback to have it start looping  
             updateState(function(data){
                 updating = true;
                 
@@ -258,6 +283,16 @@ function startRoasting(evt)
             
         });}, 1000);   
 }
+
+function stopRoasting(evt)
+{
+    fetch(api_ip + "/reset")
+    updating = false;
+    start.style.display = "block";
+    file_upload.disabled = false;
+}
+
+
 
 function draw_state_lines(context, start_time)
 {
@@ -286,6 +321,7 @@ file_upload.addEventListener("change", loadProfile, false);
 load.addEventListener('click', (evt) => file_upload.click(), false);
 
 start.addEventListener('click', startRoasting, false)
+stop.addEventListener('click', stopRoasting, false)
 
 window.addEventListener('resize', function(event) {
     scaleWindow();

@@ -36,13 +36,17 @@
     <br>
 
     <div id = "buttons" style = "width : 300px; display:  flex; justify-content: center; flex-direction: column; margin: auto;"> 
-        <div style="display:flex; justify-content:center;">
-            <button id = 'load'>load profile</button> 
-            <button id = 'start'>start roasting</button>
+        <button id = 'load'>load profile</button> 
+        <div style="display:flex; justify-content:center;">   
+            <button id = 'start'>start</button>
+            <button id = 'stop'>stop</button>
         </div>
         <input type ="file" id="upload_profile" style="display:none;">
     </div>
     <div id = "notes"></div>
+    <div id = "create" style="display:flex; justify-content:center;">
+        <button onclick= "window.location.href='/create'" id = 'redir'> create or edit profile </button>
+    </div>
 
     <div id = "color_title"></div>
     <div id = "color_axes"></div>
