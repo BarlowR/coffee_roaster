@@ -64,7 +64,12 @@ class KalmanFilter:
         IM = np.dot(self.H, self.X)
         IS = self.R + np.dot(self.H, np.dot(self.P, self.H.T))
         K = np.dot(self.P, np.dot(self.H.T, np.linalg.inv(IS)))
-        self.X = self.X + np.dot(K, (Z-IM))
+        delta_X = np.dot(K, (Z-IM))
+
+        # for idx in range(8):
+        #     if delta_X[idx,0] > 100: delta_X[idx,0] = 100
+        #     if delta_X[idx,0] < -100: delta_X[idx,0] = -100
+        self.X = self.X + delta_X
         self.P = self.P - np.dot(K, np.dot(IS, K.T))
         return (K,IM,IS) 
 

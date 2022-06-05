@@ -1,3 +1,4 @@
+from multiprocessing.spawn import old_main_modules
 import time
 import platform
 import multiprocessing as mp
@@ -114,10 +115,16 @@ class RoasterController:
             time_ns = time.time_ns() - self.initial_time
             self.global_time = time_ns/1000000
             ts = time_ns - self.last_update_time
-            self.last_update_time = time_ns
+            self.last_update_time = time_ns\
+
+            old_temps = self.temps.X.copy()
             
             Z_read = np.transpose(np.array([[self.adc_to_temp(adc.value) for adc in self.Z]]))
             self.temps.step(np.zeros((8,1)), Z_read, ts/1000000000)
+
+            #TODO: Massive band-aid here lol but it works
+            for idx, old_temp in enumerate(old_temps):
+                if abs(old_temp - self.temps.X[idx,0]) > 2: self.temps.X[idx,0] = old_temp
 
             #print(Z_read)
 

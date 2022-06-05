@@ -45,7 +45,7 @@ c.height = 900;
 //setup the actual plot coordinates and the max values for temp and time
 var internal_plot = [[50, 1450], [80, 850]];
 var temp_max = 500
-var time_max = 1000
+var time_max = 600
 
 var temp_nodes = [];
 var heater_nodes = [];
@@ -187,7 +187,7 @@ function loadProfile(evt)
                 node.updateCanvasPos(internal_plot)
             }
         }
-        notes_div.innerHTML = note;
+        notes_div.innerText = note;
 
         temp_nodes = nodes[0];
         fan_nodes = nodes[1];
@@ -297,7 +297,7 @@ function stopRoasting(evt)
 function draw_state_lines(context, start_time)
 {
     
-
+    ctx.strokeStyle = color_temp;
     for (const name of Object.keys(temps)) {
         context.beginPath();
         context.moveTo(timeToCanvas((old_time-start_time)/1000, internal_plot), tempToCanvas(old_temps[name], internal_plot));
@@ -305,11 +305,14 @@ function draw_state_lines(context, start_time)
         context.stroke();
 
     }
+
+    ctx.strokeStyle = color_heater;
     context.beginPath();
     context.moveTo(timeToCanvas((old_time-start_time)/1000, internal_plot), percentToCanvas(old_state["heater"]*100, internal_plot));
     context.lineTo(timeToCanvas((time-start_time)/1000, internal_plot), percentToCanvas(state["heater"]*100, internal_plot));
     context.stroke();
 
+    ctx.strokeStyle = color_fan;
     context.beginPath();
     context.moveTo(timeToCanvas((old_time-start_time)/1000, internal_plot), percentToCanvas(old_state["fan"]*100, internal_plot));
     context.lineTo(timeToCanvas((time-start_time)/1000, internal_plot), percentToCanvas(state["fan"]*100, internal_plot));

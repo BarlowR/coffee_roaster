@@ -77,7 +77,7 @@ class RoasterAPI(FlaskView):
             for i in range(self.command_queue.qsize()): # iterates through the whole queue, saves then discards self addressed items, and puts everything back in order
                 address, value, order = self.command_queue.get()
                 if (address == "api"):
-                    print(value)
+                    #print(value)
                     temp_data = str(value)
                 else:
                     self.command_queue.put((address, value, order))
@@ -93,7 +93,7 @@ class RoasterAPI(FlaskView):
             for i in range(self.command_queue.qsize()): # iterates through the whole queue, saves then discards self addressed items, and puts everything back in order
                 address, value, order = self.command_queue.get()
                 if (address == "api"):
-                    print(value)
+                    #print(value)
                     state_data = str(value)
                 else:
                     self.command_queue.put((address, value, order))

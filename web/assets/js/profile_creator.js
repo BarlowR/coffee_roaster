@@ -39,7 +39,7 @@ c.height = 900;
 //setup the actual plot coordinates and the max values for temp and time
 var internal_plot = [[50, 1450], [80, 850]];
 var temp_max = 500
-var time_max = 1000
+var time_max = 600
 
 var temp_nodes = [];
 var heater_nodes = [];
